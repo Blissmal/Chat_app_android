@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "776020482614",
+    "firebase_url": "https://bliss-chatapp-default-rtdb.firebaseio.com",
+    "project_id": "bliss-chatapp",
+    "storage_bucket": "bliss-chatapp.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:776020482614:android:febe49420d0fbcbfdf9697",
+        "android_client_info": {
+          "package_name": "com.fredrikbogg.android_chat_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "776020482614-7edtr6uenjt4ok4e9onea9t21qobdr26.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKquayp7hvQUqTE_uLtsY97_YNFK4occQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "776020482614-7edtr6uenjt4ok4e9onea9t21qobdr26.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
