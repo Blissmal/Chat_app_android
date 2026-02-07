@@ -16,20 +16,10 @@ class ChatsScreen extends StatelessWidget {
     final databaseService = Provider.of<DatabaseService>(context);
     final currentUserId = authService.currentUserId;
 
-    if (currentUserId == null) {
-      return const Scaffold(
-        body: Center(child: Text('Please log in')),
-      );
-    }
+    if (currentUserId == null) return const Scaffold(body: Center(child: Text('Please log in')));
 
     return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        title: const Text(
-          'Chats',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
+      backgroundColor: Colors.white,
       body: StreamBuilder<List<Chat>>(
         stream: databaseService.getUserChatsStream(currentUserId),
         builder: (context, snapshot) {
@@ -37,194 +27,131 @@ class ChatsScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text('Error: ${snapshot.error}'),
-                ],
-              ),
-            );
-          }
-
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.chat_bubble_outline,
-                    size: 80,
-                    color: Colors.grey[300],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No chats yet',
-                    style: TextStyle(
-                      fontSize: 20,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Start a conversation from Users tab',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[500],
-                    ),
-                  ),
-                ],
-              ),
-            );
+            return _buildEmptyState(context);
           }
 
           final chats = snapshot.data!;
 
-          return ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+          return ListView.builder(
+            padding: const EdgeInsets.only(top: 8),
             itemCount: chats.length,
-            separatorBuilder: (context, index) => const Divider(height: 1, indent: 72),
             itemBuilder: (context, index) {
               final chat = chats[index];
-              final otherUserId = chat.participants.firstWhere(
-                (id) => id != currentUserId,
-                orElse: () => '',
-              );
-
-              if (otherUserId.isEmpty) return const SizedBox.shrink();
+              final otherUserId = chat.participants.firstWhere((id) => id != currentUserId, orElse: () => '');
 
               return StreamBuilder<app_user.User?>(
                 stream: databaseService.getUserStream(otherUserId),
                 builder: (context, userSnapshot) {
-                  if (!userSnapshot.hasData) {
-                    return const ListTile(
-                      leading: CircleAvatar(child: Icon(Icons.person)),
-                      title: Text('Loading...'),
-                    );
-                  }
+                  if (!userSnapshot.hasData) return const SizedBox.shrink();
 
                   final otherUser = userSnapshot.data!;
                   final isOnline = otherUser.status == 'online';
-                  final isCurrentUserLastSender = chat.lastMessageSenderId == currentUserId;
 
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    leading: Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundImage: otherUser.profileImageUrl != null
-                              ? NetworkImage(otherUser.profileImageUrl!)
-                              : null,
-                          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.2),
-                          child: otherUser.profileImageUrl == null
-                              ? Text(
-                                  otherUser.name[0].toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    color: Theme.of(context).primaryColor,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
-                              : null,
-                        ),
-                        if (isOnline)
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              width: 16,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 3,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    title: Text(
-                      otherUser.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
-                    subtitle: chat.lastMessage != null
-                        ? Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Row(
+                  return InkWell(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => ChatScreen(chatId: chat.id, otherUser: otherUser),
+                    )),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          _buildAvatar(otherUser, isOnline, context),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (isCurrentUserLastSender)
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 4),
-                                    child: Icon(
-                                      Icons.done_all,
-                                      size: 16,
-                                      color: Colors.grey[600],
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      otherUser.name,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                     ),
-                                  ),
-                                Expanded(
-                                  child: Text(
-                                    chat.lastMessage!,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Colors.grey[700],
-                                      fontSize: 14,
+                                    if (chat.lastMessageTime != null)
+                                      Text(
+                                        _formatTimestamp(chat.lastMessageTime!),
+                                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    if (chat.lastMessageSenderId == currentUserId)
+                                      const Icon(Icons.done_all_rounded, size: 16, color: Colors.blue),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        chat.lastMessage ?? 'Start a conversation',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
                               ],
                             ),
-                          )
-                        : Text(
-                            'Tap to start chatting',
-                            style: TextStyle(
-                              color: Colors.grey[500],
-                              fontSize: 14,
-                              fontStyle: FontStyle.italic,
-                            ),
                           ),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (chat.lastMessageTime != null)
-                          Text(
-                            _formatTimestamp(chat.lastMessageTime!),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ChatScreen(
-                            chatId: chat.id,
-                            otherUser: otherUser,
-                          ),
-                        ),
-                      );
-                    },
                   );
                 },
               );
             },
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildAvatar(app_user.User user, bool isOnline, BuildContext context) {
+    return Stack(
+      children: [
+        Container(
+          height: 56,
+          width: 56,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18), // Squircular look
+            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            image: user.profileImageUrl != null
+                ? DecorationImage(image: NetworkImage(user.profileImageUrl!), fit: BoxFit.cover)
+                : null,
+          ),
+          child: user.profileImageUrl == null
+              ? Center(child: Text(user.name[0].toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)))
+              : null,
+        ),
+        if (isOnline)
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              height: 14,
+              width: 14,
+              decoration: BoxDecoration(
+                color: Colors.green,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.chat_bubble_outline_rounded, size: 80, color: Colors.grey[200]),
+          const SizedBox(height: 16),
+          const Text('No conversations yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }

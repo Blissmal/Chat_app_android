@@ -176,358 +176,219 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authService = Provider.of<AuthService>(context);
+    final theme = Theme.of(context);
     final databaseService = Provider.of<DatabaseService>(context);
+    final authService = Provider.of<AuthService>(context);
     final currentUserId = authService.currentUserId;
 
-    if (currentUserId == null) {
-      return const Scaffold(
-        body: Center(child: Text('Please log in')),
-      );
-    }
+    if (currentUserId == null) return const Scaffold(body: Center(child: Text('Login Required')));
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
+        backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'Profile',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        centerTitle: true,
+        title: const Text('My Profile', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         actions: [
-          if (!_isEditing)
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: 'Edit Profile',
-              onPressed: () => setState(() => _isEditing = true),
-            ),
           IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sign Out',
             onPressed: _signOut,
-          ),
+            icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+          )
         ],
       ),
       body: StreamBuilder<app_user.User?>(
         stream: databaseService.getUserStream(currentUserId),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData) {
-            return const Center(child: Text('User not found'));
-          }
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
           final user = snapshot.data!;
-          final isOnline = user.status == 'online';
-
           if (!_isEditing) {
             _nameController.text = user.name;
             _bioController.text = user.bio ?? '';
           }
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
               children: [
-                // Profile Picture Section
-                Stack(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: CircleAvatar(
-                        radius: 70,
-                        backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-                        backgroundImage: user.profileImageUrl != null
-                            ? NetworkImage(user.profileImageUrl!)
-                            : null,
-                        child: user.profileImageUrl == null
-                            ? Text(
-                          user.name[0].toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 48,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).primaryColor,
-                          ),
-                        )
-                            : null,
-                      ),
-                    ),
-                    if (_isEditing)
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).primaryColor,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.camera_alt, color: Colors.white),
-                            onPressed: _isLoading ? null : _pickAndUploadImage,
-                          ),
-                        ),
-                      ),
-                    if (!_isEditing && isOnline)
-                      Positioned(
-                        bottom: 5,
-                        right: 5,
-                        child: Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 3,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // Status Badge
-                if (!_isEditing)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isOnline
-                          ? Colors.green.withOpacity(0.1)
-                          : Colors.grey.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isOnline
-                            ? Colors.green.withOpacity(0.3)
-                            : Colors.grey.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: isOnline ? Colors.green : Colors.grey,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          isOnline ? 'Online' : 'Offline',
-                          style: TextStyle(
-                            color: isOnline ? Colors.green : Colors.grey[700],
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 32),
-
-                // Name Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: _isEditing ? Colors.white : Colors.grey[50],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _isEditing
-                          ? Theme.of(context).primaryColor.withOpacity(0.3)
-                          : Colors.grey.withOpacity(0.2),
-                    ),
-                  ),
-                  child: TextField(
-                    controller: _nameController,
-                    enabled: _isEditing,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Name',
-                      labelStyle: TextStyle(
-                        color: _isEditing
-                            ? Theme.of(context).primaryColor
-                            : Colors.grey[600],
-                      ),
-                      prefixIcon: Icon(
-                        Icons.person_outline,
-                        color: _isEditing
-                            ? Theme.of(context).primaryColor
-                            : Colors.grey[600],
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.all(16),
-                    ),
-                  ),
-                ),
+                const SizedBox(height: 20),
+                _buildProfileImage(user, theme),
                 const SizedBox(height: 16),
 
-                // Bio Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: _isEditing ? Colors.white : Colors.grey[50],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _isEditing
-                          ? Theme.of(context).primaryColor.withOpacity(0.3)
-                          : Colors.grey.withOpacity(0.2),
-                    ),
-                  ),
-                  child: TextField(
-                    controller: _bioController,
-                    enabled: _isEditing,
-                    maxLines: 3,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Bio',
-                      labelStyle: TextStyle(
-                        color: _isEditing
-                            ? Theme.of(context).primaryColor
-                            : Colors.grey[600],
-                      ),
-                      prefixIcon: Icon(
-                        Icons.info_outline,
-                        color: _isEditing
-                            ? Theme.of(context).primaryColor
-                            : Colors.grey[600],
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.all(16),
-                    ),
-                  ),
+                // Name and Status
+                Text(user.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                _buildStatusBadge(user.status == 'online'),
+
+                const SizedBox(height: 40),
+
+                // Information Section
+                _buildInfoCard(
+                  title: 'Display Name',
+                  controller: _nameController,
+                  icon: Icons.person_outline_rounded,
+                  enabled: _isEditing,
                 ),
                 const SizedBox(height: 16),
-
-                // Email Field (Read-only)
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.grey.withOpacity(0.2),
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Icon(Icons.email_outlined, color: Colors.grey[600]),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Email',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              user.email,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                _buildInfoCard(
+                  title: 'About Me',
+                  controller: _bioController,
+                  icon: Icons.chat_bubble_outline_rounded,
+                  enabled: _isEditing,
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                _buildReadOnlyField(
+                  title: 'Email Address',
+                  value: user.email,
+                  icon: Icons.alternate_email_rounded,
                 ),
 
-                // Action Buttons
-                if (_isEditing) ...[
-                  const SizedBox(height: 32),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : () => _updateProfile(user),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 2,
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                              : const Text(
-                            'Save Changes',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _isLoading
-                              ? null
-                              : () => setState(() => _isEditing = false),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                const SizedBox(height: 40),
+                _buildActionButtons(user),
+                const SizedBox(height: 20),
               ],
             ),
           );
         },
       ),
+    );
+  }
+
+  Widget _buildProfileImage(app_user.User user, ThemeData theme) {
+    return Center(
+      child: Stack(
+        alignment: Alignment.bottomRight,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: theme.primaryColor.withOpacity(0.2), width: 2),
+            ),
+            child: CircleAvatar(
+              radius: 65,
+              backgroundColor: Colors.grey[100],
+              backgroundImage: user.profileImageUrl != null ? NetworkImage(user.profileImageUrl!) : null,
+              child: user.profileImageUrl == null
+                  ? Text(user.name[0], style: TextStyle(fontSize: 40, color: theme.primaryColor))
+                  : null,
+            ),
+          ),
+          GestureDetector(
+            onTap: _isEditing ? _pickAndUploadImage : () => setState(() => _isEditing = true),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: _isEditing ? theme.primaryColor : Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
+              ),
+              child: Icon(
+                _isEditing ? Icons.camera_alt_rounded : Icons.edit_rounded,
+                size: 20,
+                color: _isEditing ? Colors.white : theme.primaryColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(bool isOnline) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: isOnline ? Colors.green[50] : Colors.grey[100],
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(radius: 4, backgroundColor: isOnline ? Colors.green : Colors.grey),
+          const SizedBox(width: 6),
+          Text(
+            isOnline ? 'Active Now' : 'Offline',
+            style: TextStyle(fontSize: 12, color: isOnline ? Colors.green[700] : Colors.grey[600], fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard({required String title, required TextEditingController controller, required IconData icon, bool enabled = false, int maxLines = 1}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: enabled ? Colors.white : Colors.grey[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: enabled ? Colors.blue.withOpacity(0.3) : Colors.transparent),
+      ),
+      child: TextField(
+        controller: controller,
+        enabled: enabled,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          labelText: title,
+          prefixIcon: Icon(icon, size: 22),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyField({required String title, required String value, required IconData icon}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.grey[400], size: 22),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons(app_user.User user) {
+    if (!_isEditing) return const SizedBox.shrink();
+
+    return Row(
+      children: [
+        Expanded(
+          child: TextButton(
+            onPressed: () => setState(() => _isEditing = false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : () => _updateProfile(user),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            child: _isLoading
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text('Save Profile', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ),
+      ],
     );
   }
 }

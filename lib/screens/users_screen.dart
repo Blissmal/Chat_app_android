@@ -14,245 +14,96 @@ class UsersScreen extends StatelessWidget {
     final databaseService = Provider.of<DatabaseService>(context);
     final currentUserId = authService.currentUserId;
 
-    if (currentUserId == null) {
-      return const Scaffold(
-        body: Center(child: Text('Please log in')),
-      );
-    }
-
     return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        title: const Text(
-          'Users',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: StreamBuilder<List<app_user.User>>(
-        stream: databaseService.getAllUsersStream(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text('Error: ${snapshot.error}'),
-                ],
+      backgroundColor: Colors.white,
+      body: Column(
+        children: [
+          // Elegant Search Bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search people...',
+                prefixIcon: const Icon(Icons.search_rounded),
+                filled: true,
+                fillColor: Colors.grey[100],
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                contentPadding: EdgeInsets.zero,
               ),
-            );
-          }
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<List<app_user.User>>(
+              stream: databaseService.getAllUsersStream(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.people_outline,
-                    size: 80,
-                    color: Colors.grey[300],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No users found',
-                    style: TextStyle(
-                      fontSize: 20,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
+                final users = snapshot.data!.where((u) => u.id != currentUserId).toList();
 
-          final users = snapshot.data!
-              .where((user) => user.id != currentUserId)
-              .toList();
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: users.length,
+                  itemBuilder: (context, index) {
+                    final user = users[index];
+                    final isOnline = user.status == 'online';
 
-          if (users.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.people_outline,
-                    size: 80,
-                    color: Colors.grey[300],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No other users yet',
-                    style: TextStyle(
-                      fontSize: 20,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          // Sort users: online first, then by name
-          users.sort((a, b) {
-            if (a.status == 'online' && b.status != 'online') return -1;
-            if (a.status != 'online' && b.status == 'online') return 1;
-            return a.name.compareTo(b.name);
-          });
-
-          return ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: users.length,
-            separatorBuilder: (context, index) => const Divider(height: 1, indent: 72),
-            itemBuilder: (context, index) {
-              final user = users[index];
-              final isOnline = user.status == 'online';
-
-              return ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                leading: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundImage: user.profileImageUrl != null
-                          ? NetworkImage(user.profileImageUrl!)
-                          : null,
-                      backgroundColor: Theme.of(context).primaryColor.withOpacity(0.2),
-                      child: user.profileImageUrl == null
-                          ? Text(
-                              user.name[0].toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 20,
-                                color: Theme.of(context).primaryColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : null,
-                    ),
-                    if (isOnline)
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 3,
-                            ),
-                          ),
-                        ),
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade100),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+                        ],
                       ),
-                  ],
-                ),
-                title: Text(
-                  user.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    user.bio ?? user.email,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.grey[700],
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (isOnline)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.green.withOpacity(0.3),
-                          ),
-                        ),
-                        child: const Text(
-                          'Online',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.green,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                      child: ListTile(
+                        onTap: () => _handleUserClick(context, databaseService, currentUserId!, user),
+                        contentPadding: const EdgeInsets.all(12),
+                        leading: _buildUserAvatar(user, context),
+                        title: Text(user.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text(user.bio ?? 'Hey there! I am using this chat.', maxLines: 1),
+                        trailing: isOnline
+                            ? const Icon(Icons.bolt, color: Colors.amber, size: 20)
+                            : const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
                       ),
-                  ],
-                ),
-                onTap: () async {
-                  // Show loading indicator
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) => const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  );
-
-                  try {
-                    // Create or find existing chat
-                    final chatId = await databaseService.createChat([
-                      currentUserId,
-                      user.id,
-                    ]);
-
-                    if (context.mounted) {
-                      // Close loading dialog
-                      Navigator.pop(context);
-
-                      // Navigate to chat
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ChatScreen(
-                            chatId: chatId,
-                            otherUser: user,
-                          ),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      // Close loading dialog
-                      Navigator.pop(context);
-
-                      // Show error
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Failed to open chat: ${e.toString()}'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  }
-                },
-              );
-            },
-          );
-        },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _buildUserAvatar(app_user.User user, BuildContext context) {
+    return Container(
+      height: 50,
+      width: 50,
+      decoration: BoxDecoration(
+        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        shape: BoxShape.circle,
+        image: user.profileImageUrl != null
+            ? DecorationImage(image: NetworkImage(user.profileImageUrl!), fit: BoxFit.cover)
+            : null,
+      ),
+      child: user.profileImageUrl == null
+          ? Center(child: Text(user.name[0], style: const TextStyle(fontWeight: FontWeight.bold)))
+          : null,
+    );
+  }
+
+  Future<void> _handleUserClick(BuildContext context, DatabaseService db, String currentId, app_user.User user) async {
+    // Show a modern progress overlay
+    showDialog(context: context, builder: (_) => const Center(child: CircularProgressIndicator()));
+
+    final chatId = await db.createChat([currentId, user.id]);
+
+    if (context.mounted) {
+      Navigator.pop(context); // Close loader
+      Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(chatId: chatId, otherUser: user)));
+    }
   }
 }

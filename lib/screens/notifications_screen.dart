@@ -9,183 +9,54 @@ class NotificationsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authService = Provider.of<AuthService>(context);
+    final theme = Theme.of(context);
     final databaseService = Provider.of<DatabaseService>(context);
-    final currentUserId = authService.currentUserId;
-
-    if (currentUserId == null) {
-      return const Scaffold(
-        body: Center(child: Text('Please log in')),
-      );
-    }
+    final currentUserId = Provider.of<AuthService>(context).currentUserId;
 
     return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        title: const Text(
-          'Notifications',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          StreamBuilder<List<Map<String, dynamic>>>(
-            stream: databaseService.getNotificationsStream(currentUserId),
-            builder: (context, snapshot) {
-              final hasUnread = snapshot.hasData &&
-                  snapshot.data!.any((n) => n['isRead'] == false);
-
-              if (!hasUnread) return const SizedBox.shrink();
-
-              return TextButton(
-                onPressed: () async {
-                  if (snapshot.hasData) {
-                    for (var notification in snapshot.data!) {
-                      if (notification['isRead'] == false) {
-                        await databaseService.markNotificationAsRead(
-                          currentUserId,
-                          notification['id'],
-                        );
-                      }
-                    }
-                  }
-                },
-                child: const Text('Mark all read'),
-              );
-            },
-          ),
-        ],
-      ),
+      backgroundColor: Colors.white,
       body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: databaseService.getNotificationsStream(currentUserId),
+        stream: databaseService.getNotificationsStream(currentUserId!),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text('Error: ${snapshot.error}'),
-                ],
-              ),
-            );
-          }
-
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.notifications_none,
-                    size: 80,
-                    color: Colors.grey[300],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No notifications',
-                    style: TextStyle(
-                      fontSize: 20,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'You\'re all caught up!',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[500],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
+          if (!snapshot.hasData || snapshot.data!.isEmpty) return _buildEmptyState();
 
           final notifications = snapshot.data!;
 
-          return ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             itemCount: notifications.length,
-            separatorBuilder: (context, index) => const Divider(height: 1, indent: 72),
             itemBuilder: (context, index) {
-              final notification = notifications[index];
-              final timestamp = notification['timestamp'] as int?;
-              final isRead = notification['isRead'] == true;
-              final notificationType = notification['type'] as String? ?? 'message';
+              final n = notifications[index];
+              final isRead = n['isRead'] == true;
 
               return Dismissible(
-                key: Key(notification['id']),
+                key: Key(n['id']),
                 direction: DismissDirection.endToStart,
-                background: Container(
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20),
-                  color: Colors.red,
-                  child: const Icon(Icons.delete, color: Colors.white),
-                ),
-                confirmDismiss: (direction) async {
-                  // Here you would delete the notification from the database
-                  return true;
-                },
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
+                background: _buildDismissBackground(),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: isRead ? Colors.white : theme.primaryColor.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: isRead ? Colors.grey.shade100 : theme.primaryColor.withOpacity(0.1)),
                   ),
-                  tileColor: isRead ? null : Colors.blue.withOpacity(0.05),
-                  leading: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: _getNotificationColor(notificationType).withOpacity(0.1),
-                      shape: BoxShape.circle,
+                  child: ListTile(
+                    onTap: () => databaseService.markNotificationAsRead(currentUserId, n['id']),
+                    contentPadding: const EdgeInsets.all(12),
+                    leading: _buildNotificationIcon(n['type'], theme),
+                    title: Text(
+                      n['message'],
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: isRead ? FontWeight.normal : FontWeight.w600,
+                      ),
                     ),
-                    child: Icon(
-                      _getNotificationIcon(notificationType),
-                      color: _getNotificationColor(notificationType),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(_formatTimestamp(n['timestamp']), style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                     ),
+                    trailing: !isRead ? CircleAvatar(radius: 4, backgroundColor: theme.primaryColor) : null,
                   ),
-                  title: Text(
-                    notification['message'] ?? 'New notification',
-                    style: TextStyle(
-                      fontWeight: isRead ? FontWeight.normal : FontWeight.w600,
-                      fontSize: 15,
-                    ),
-                  ),
-                  subtitle: timestamp != null
-                      ? Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            _formatTimestamp(timestamp),
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        )
-                      : null,
-                  trailing: !isRead
-                      ? Container(
-                          width: 10,
-                          height: 10,
-                          decoration: const BoxDecoration(
-                            color: Colors.blue,
-                            shape: BoxShape.circle,
-                          ),
-                        )
-                      : null,
-                  onTap: () async {
-                    if (!isRead) {
-                      await databaseService.markNotificationAsRead(
-                        currentUserId,
-                        notification['id'],
-                      );
-                    }
-                  },
                 ),
               );
             },
@@ -195,26 +66,40 @@ class NotificationsScreen extends StatelessWidget {
     );
   }
 
-  IconData _getNotificationIcon(String? type) {
-    switch (type) {
-      case 'message':
-        return Icons.message;
-      case 'friend_request':
-        return Icons.person_add;
-      default:
-        return Icons.notifications;
-    }
+  Widget _buildNotificationIcon(String? type, ThemeData theme) {
+    IconData icon = Icons.notifications_none_rounded;
+    Color color = theme.primaryColor;
+    if (type == 'message') { icon = Icons.chat_bubble_outline_rounded; color = Colors.blue; }
+    if (type == 'friend_request') { icon = Icons.person_add_outlined; color = Colors.green; }
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+      child: Icon(icon, color: color, size: 20),
+    );
   }
 
-  Color _getNotificationColor(String? type) {
-    switch (type) {
-      case 'message':
-        return Colors.blue;
-      case 'friend_request':
-        return Colors.green;
-      default:
-        return Colors.orange;
-    }
+  Widget _buildDismissBackground() {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 20),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(16)),
+      child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.notifications_off_outlined, size: 60, color: Colors.grey[200]),
+          const SizedBox(height: 16),
+          const Text('All caught up!', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
   }
 
   String _formatTimestamp(int timestamp) {
